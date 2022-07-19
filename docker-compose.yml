@@ -7,15 +7,23 @@ networks:
 services:
   rabbitmq:
     image: 'rabbitmq:3-management'
-    networks:
-      - rabbitmq-example
+    restart: "always"
+
     volumes:
-      - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      # - ./data/rabbitmq:/var/lib/rabbitmq/mnesia/
+      - ./data/rabbitmq:/var/lib/rabbitmq
     ports:
       - "8080:15672"
-      # - "5000:5673"
+      - "5000:5673"
+    environment:
+      RABBITMQ_DEFAULT_PASS: 123456a@
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_VHOST: 'vhost'
     healthcheck:
       test: [ "CMD", "rabbitmqctl", "status"]
       interval: 5s
       timeout: 15s
       retries: 5
+    networks:
+      - rabbitmq-example
