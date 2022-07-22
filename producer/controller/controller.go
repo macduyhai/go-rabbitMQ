@@ -17,11 +17,8 @@ type Controller struct {
 }
 
 func NewController(config *config.Config) Controller {
-	// conn, ch, err := service.InitRMQ(config.RMQURL,config.UserQueue)
-	// if err != nil {
-	// 	logger.LogError("Connection RMQ error:" + err.Error())
-	// }
-	rmqservice := service.GetRMQProducerService(config.RMQURL, config.UserQueue)
+	rbmq := service.InitConnectionRB(config.RMQURL, config.UserQueue)
+	rmqservice := service.GetRMQProducerService(rbmq)
 	return Controller{userService: *rmqservice}
 }
 

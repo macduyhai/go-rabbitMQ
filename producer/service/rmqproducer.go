@@ -1,32 +1,39 @@
 package service
 
 import (
+	"sync"
+
 	"github.com/macduyhai/go-rabbitMQ/logger"
+	"github.com/macduyhai/go-rabbitMQ/rabbitmq"
 	"github.com/streadway/amqp"
 )
 
+var (
+	one sync.Once
+	rb  *RabbitMQ
+)
+
 type RMQProducerService struct {
+	rabbitmq RabbitMQ
+}
+type RabbitMQ struct {
+	clientCon *rabbitmq.Connection
+	clientch  *rabbitmq.Channel
 	Queue     *amqp.Queue
-	clientCon *amqp.Connection
-	clientch  *amqp.Channel
-	rbmqErr   error
+	// 	rbmqErr   error
 }
 
-func GetRMQProducerService(connectionString string, queueString string) *RMQProducerService {
-	var rmqservice = &RMQProducerService{}
-	conn, err := amqp.Dial(connectionString)
-	if err != nil {
-		logger.LogError("Failed to connect to RabbitMQ:" + err.Error())
-		rmqservice.rbmqErr = err
-		return rmqservice
+func InitConnectionRB(connectionString string, queueString string) *RabbitMQ {
+	logger.LogInfor("Connecting to RB ...")
+	rb = &RabbitMQ{}
+	conn, errConn := rabbitmq.DialConfig(connectionString, amqp.Config{Properties: amqp.Table{"connection_name": "ProducerApp-1"}})
+	if errConn != nil {
+		logger.LogError("Failed to connect to RabbitMQ:" + errConn.Error())
 	}
 	ch, err := conn.Channel()
 	if err != nil {
 		logger.LogError("Failed to open a channel:" + err.Error())
-		rmqservice.rbmqErr = err
-		return rmqservice
 	}
-
 	q, err := ch.QueueDeclare(
 		queueString, // name
 		true,        // durable
@@ -37,25 +44,27 @@ func GetRMQProducerService(connectionString string, queueString string) *RMQProd
 	)
 	if err != nil {
 		logger.LogError("Failed to declare a queue:" + err.Error())
-		rmqservice.rbmqErr = err
-		return rmqservice
 	}
+	rb.clientCon = conn
+	rb.clientch = ch
+	rb.Queue = &q
 
-	rmqservice.clientCon = conn
-	rmqservice.clientch = ch
-	rmqservice.Queue = &q
-	rmqservice.rbmqErr = nil
+	return rb
+}
 
-	// defer conn.Close()
-	return rmqservice
+func GetRMQProducerService(rb *RabbitMQ) *RMQProducerService {
+	return &RMQProducerService{
+		rabbitmq: *rb,
+	}
 }
 func (rmqservice *RMQProducerService) PublishMessage(contentType string, body []byte) error {
 	// timeStart := time.Now()
-	err := rmqservice.clientch.Publish(
-		"",                    // exchange
-		rmqservice.Queue.Name, // routing key
-		false,                 // mandatory
-		false,                 // immediate
+	rab := rmqservice.rabbitmq
+	err := rab.clientch.Publish(
+		"",             // exchange
+		rab.Queue.Name, // routing key
+		false,          // mandatory
+		false,          // immediate
 		amqp.Publishing{
 			ContentType:  contentType,
 			Body:         body,
@@ -63,7 +72,7 @@ func (rmqservice *RMQProducerService) PublishMessage(contentType string, body []
 		})
 	if err != nil {
 		logger.LogError("Failed to publish a message:" + err.Error())
-
+		rab.clientCon.Close()
 		return err
 	}
 	// logger.LogInfor(time.Since(timeStart))
