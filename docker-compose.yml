@@ -10,16 +10,16 @@ services:
     restart: "always"
 
     volumes:
-      - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      # - ./data/rabbitmq:/var/lib/rabbitmq/mnesia/
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
       - ./data/rabbitmq:/var/lib/rabbitmq
+      - ./data/rabbitmq/log/:/var/log/rabbitmq
     ports:
       - "8080:15672"
       - "5000:5673"
     environment:
       RABBITMQ_DEFAULT_PASS: 123456a@
       RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_VHOST: 'vhost'
+      # RABBITMQ_DEFAULT_VHOST: 'vhost'
     healthcheck:
       test: [ "CMD", "rabbitmqctl", "status"]
       interval: 5s
